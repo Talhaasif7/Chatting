@@ -38,14 +38,15 @@ const io = new Server(server, {
 io.on('connection', (socket) => {
     console.log('User connected');
 
-    socket.on('sendMessage', (messageData) => {
-        socket.to(messageData.receiver).emit('receiveMessage', messageData);
-    });
+    socket.on('joinRoom', (userId) => socket.join(userId));
+
+    socket.on('sendMessage', (messageData) => io.to(messageData.receiver).emit('receiveMessage', messageData));
 
     socket.on('disconnect', () => {
         console.log('User disconnected');
     });
 });
+
 
 // Start the server
 const PORT = process.env.PORT || 5000;

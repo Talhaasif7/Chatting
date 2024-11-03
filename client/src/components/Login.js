@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button, TextField, Typography, Container, Link } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axiosInstance from '../utils/axiosInstance';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -12,14 +12,14 @@ const Login = () => {
         e.preventDefault();
 
         try {
-            const response = await axios.post('http://localhost:5000/api/auth/login', { email, password });
+            const response = await axiosInstance.post('/auth/login', { email, password });
 
             // Store token and user details in localStorage
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('currentUser', JSON.stringify(response.data.user));
 
             alert(response.data.message);
-            navigate('/ChatRoom'); // Redirect to ChatRoom after successful login
+            navigate('/chatroom'); // Redirect to ChatRoom after successful login
         } catch (error) {
             console.error('Login error:', error);
             if (error.response) {

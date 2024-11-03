@@ -1,82 +1,73 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Typography, Box, List, ListItem, ListItemText, Button, Paper, TextField, IconButton } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
-import axios from 'axios';
-import { io } from 'socket.io-client'; // Import Socket.io client
+import { io } from 'socket.io-client';
+import axiosInstance from '../utils/axiosInstance';
 
 const ChatRoom = () => {
-    const currentUser = JSON.parse(localStorage.getItem('currentUser')); // Logged-in user
+    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
     const [users, setUsers] = useState([]);
     const [selectedUser, setSelectedUser] = useState(null);
     const [message, setMessage] = useState('');
     const [chatMessages, setChatMessages] = useState([]);
     const navigate = useNavigate();
-
-    // Initialize Socket.io connection
-    const socket = io('http://localhost:5000'); // Change this to your server URL if different
+    const socket = useRef(null);
 
     const fetchUsers = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const response = await axios.get('http://localhost:5000/api/users', {
-                headers: { 'x-auth-token': token }
-            });
-            console.log("Fetched Users from API:", response.data);
+            const response = await axiosInstance.get('/users');
             setUsers(response.data);
         } catch (error) {
             console.error('Error fetching users:', error);
         }
     };
 
-    useEffect(() => {
-        fetchUsers(); // Fetch users on component mount
-
-        socket.on('receiveMessage', (messageData) => {
-            setChatMessages((prevMessages) => [...prevMessages, messageData]);
-        });
-
-        return () => {
-            socket.off('receiveMessage');
-            socket.disconnect(); // Clean up the socket connection
-        };
-    }, [socket]);
-
-    const handleUserSelect = async (user) => {
-        setSelectedUser(user);
+    const fetchMessages = async (user) => {
         try {
-            const token = localStorage.getItem('token');
-            const response = await axios.get(`/api/chats/${currentUser._id}/${user._id}`, {
-                headers: { 'x-auth-token': token }
-            });
+            const response = await axiosInstance.get(`/messages/${currentUser._id}/${user._id}`);
             setChatMessages(response.data);
         } catch (error) {
             console.error('Error fetching chat messages:', error);
         }
     };
 
+    useEffect(() => {
+        fetchUsers();
+
+        socket.current = io('http://localhost:5000');
+        socket.current.emit('joinRoom', currentUser._id);
+
+        socket.current.on('receiveMessage', (messageData) => setChatMessages(prevMessages => [...prevMessages, messageData]));
+
+        return () => {
+            socket.current.off('receiveMessage');
+            socket.current.disconnect();
+        };
+    }, [selectedUser, currentUser._id]);
+
+    const handleUserSelect = (user) => {
+        setSelectedUser(user);
+        fetchMessages(user);
+    };
+
     const handleSendMessage = async () => {
-        if (message.trim() && selectedUser) { // Ensure a user is selected before sending a message
+        if (message.trim() && selectedUser) {
             const messageData = {
                 sender: currentUser._id,
                 receiver: selectedUser._id,
                 content: message,
             };
 
-            // Emit the message via Socket.io
-            socket.emit('sendMessage', messageData);
+            socket.current.emit('sendMessage', messageData);
 
-            // Optionally, save the message in the database if necessary
             try {
-                const token = localStorage.getItem('token');
-                await axios.post('/api/chats', messageData, {
-                    headers: { 'x-auth-token': token }
-                });
+                await axiosInstance.post('/messages', messageData);
                 setChatMessages(prevMessages => [...prevMessages, messageData]);
                 setMessage('');
             } catch (error) {
-                console.error('Error saving message:', error);
+                console.log('Error saving message:', error);
             }
         }
     };
@@ -141,7 +132,6 @@ const ChatRoom = () => {
                 </Button>
             </Box>
 
-            {/* Chat area */}
             <Box flex={1} padding="20px">
                 {!selectedUser ? (
                     <Typography variant="h5" color="#10375C">

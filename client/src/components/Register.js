@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button, TextField, Typography, Container, Link } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axiosInstance from '../utils/axiosInstance';
 
 const Register = () => {
     const [name, setName] = useState('');
@@ -13,7 +13,7 @@ const Register = () => {
         e.preventDefault();
 
         try {
-            const response = await axios.post('http://localhost:5000/api/auth/register', { name, email, password });
+            const response = await axiosInstance.post('/auth/register', { name, email, password });
 
             alert('Registration successful!');
             navigate('/'); // Redirect to login page after successful registration
